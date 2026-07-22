@@ -1,4 +1,5 @@
 # D5 disposable proof repo
 
-Seeded (validator + clean governed file) for the D5 server-side proof.
-NOTE: the governance-validate workflow could NOT be seeded — the provided fine-grained PATs lack the Workflows permission.
+Provisioned by vault/tools/lib/d5_proof_repo.py for the D5 server-side
+enforcement proof (dev-spec 396d88a4 / test-spec 0f06a8b5). Disposable —
+safe to delete/reset between runs.

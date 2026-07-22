@@ -1,0 +1,45 @@
+# D3b governance-validator gate — REQUIRED GitHub Action (dev-spec 396d88a4, P6).
+#
+# INSTALL TARGET: the team's PROTECTED canonical repo (e.g. the disposable proof
+# repo, then the real team repo) — NOT auto-activated on the private argo-os
+# studio. Copy to `.github/workflows/governance-validate.yml` on that repo and:
+#   1. Settings → Branches → Branch protection rule on the canonical ref (main):
+#        - Require status checks to pass  ✓  (select "governance-validate")
+#        - Require branches be up to date ✓  (enforces non-force fast-forward)
+#        - Do not allow bypassing         ✓  ("unbypassable ONTO main")
+#        - Restrict who can push          → the least-privilege GitHub App only.
+#   2. The least-privilege GitHub App/installation credential (contents:write on
+#      this repo only) is the sole principal permitted to advance the ref — this
+#      is the environment/credential PREREQUISITE flagged for the D5 proof.
+#
+# This makes the gate unbypassable server-side; the local pre-commit hook
+# (lib/governance_gate.install_hook) is best-effort defence-in-depth.
+
+name: governance-validate
+on:
+  pull_request:
+    paths:
+      - "files/**.md"
+      - "vault/files/**.md"
+      - "teams/**/files/**.md"
+  push:
+    branches: [main]
+
+jobs:
+  governance-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Validate changed governed files (BROKEN => fail the required check)
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha:-HEAD~1 }}"
+          mapfile -t changed < <(git diff --name-only "$base" HEAD | grep -E '(^|/)files/.*\.md$' || true)
+          if [ "${#changed[@]}" -eq 0 ]; then echo "no governed files changed"; exit 0; fi
+          echo "validating: ${changed[*]}"
+          python3 vault/tools/federation/tropo_validate_governed.py "${changed[@]}"
