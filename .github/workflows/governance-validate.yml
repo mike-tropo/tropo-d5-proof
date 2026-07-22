@@ -36,9 +36,18 @@ jobs:
         with:
           python-version: "3.x"
       - name: Validate changed governed files (BROKEN => fail the required check)
+        env:
+          # Injected via env (not inlined) because a GitHub `${{ }}` expression does
+          # NOT support the bash `:-` default operator — inlining it as
+          # `${{ github.event.pull_request.base.sha:-HEAD~1 }}` is an invalid
+          # expression that fails the whole workflow at startup (no jobs, the
+          # required check always concludes `failure`, even for clean files).
+          # On a pull_request this resolves to the PR base; on a push it is empty,
+          # so the shell default `HEAD~1` (the pushed parent) applies.
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          base="${{ github.event.pull_request.base.sha:-HEAD~1 }}"
+          base="${PR_BASE_SHA:-HEAD~1}"
           mapfile -t changed < <(git diff --name-only "$base" HEAD | grep -E '(^|/)files/.*\.md$' || true)
           if [ "${#changed[@]}" -eq 0 ]; then echo "no governed files changed"; exit 0; fi
           echo "validating: ${changed[*]}"
